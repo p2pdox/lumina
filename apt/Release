@@ -1,8 +1,8 @@
-Origin: Undecimus
-Label: Undecimus
+Origin: Inject
+Label: Inject
 Suite: stable
 Version: 0.1
-Codename: Undecimus
+Codename: Inject
 Architectures: iphoneos-arm
 Components: main
-Description: Unc0ver Bundled
+Description: ICP Inject

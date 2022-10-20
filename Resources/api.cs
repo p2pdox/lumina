@@ -20,6 +20,39 @@
 [assembly: TypeForwardedTo(typeof(RegistryValueOptions))]
 [assembly: TypeForwardedTo(typeof(RegistryView))]
 [assembly: TypeForwardedTo(typeof(SafeRegistryHandle))]
+// Token: 0x02000013 RID: 19
+	internal static class SafeHandleCache<T> where T : SafeHandle
+	{
+		// Token: 0x06000072 RID: 114 RVA: 0x000045C8 File Offset: 0x000031C8
+		internal static T GetInvalidHandle(Func<T> invalidHandleFactory)
+		{
+			T t = Volatile.Read<T>(ref SafeHandleCache<T>.s_invalidHandle);
+			if (t == null)
+			{
+				T t2 = invalidHandleFactory();
+				t = Interlocked.CompareExchange<T>(ref SafeHandleCache<T>.s_invalidHandle, t2, default(T));
+				if (t == null)
+				{
+					GC.SuppressFinalize(t2);
+					t = t2;
+				}
+				else
+				{
+					t2.Dispose();
+				}
+			}
+			return t;
+		}
+
+		// Token: 0x06000073 RID: 115 RVA: 0x00004628 File Offset: 0x00003228
+		internal static bool IsCachedInvalidHandle(SafeHandle handle)
+		{
+			return handle == Volatile.Read<T>(ref SafeHandleCache<T>.s_invalidHandle);
+		}
+
+		// Token: 0x04000027 RID: 39
+		private static T s_invalidHandle;
+	}
 // System.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
 [assembly: TypeForwardedTo(typeof(BitArray))]
 [assembly: TypeForwardedTo(typeof(StructuralComparisons))]

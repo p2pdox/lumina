@@ -4,4 +4,4 @@ v1.9.3
 SilverEye was shutdown we now work on Lumina!<br>
 Advanced CPH! *Lumina*
 # Run on Java 
-var lumina = "[https://](https://github.com/p2pdox/lumina)
+var lumina = "https://github.com/p2pdox/lumina

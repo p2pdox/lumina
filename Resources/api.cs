@@ -356,6 +356,298 @@ namespace System
 [assembly: TypeForwardedTo(typeof(CLSCompliantAttribute))]
 [assembly: TypeForwardedTo(typeof(CoClassAttribute))]
 [assembly: TypeForwardedTo(typeof(CodeAccessSecurityAttribute))]
+// Token: 0x0200004A RID: 74
+	internal sealed class DeviceContext : MarshalByRefObject, IDeviceContext, IDisposable
+	{
+		// Token: 0x14000001 RID: 1
+		// (add) Token: 0x060005A3 RID: 1443 RVA: 0x00022588 File Offset: 0x00020B88
+		// (remove) Token: 0x060005A4 RID: 1444 RVA: 0x000225C0 File Offset: 0x00020BC0
+		public event EventHandler Disposing;
+
+		// Token: 0x17000261 RID: 609
+		// (get) Token: 0x060005A5 RID: 1445 RVA: 0x000225F5 File Offset: 0x00020BF5
+		public IntPtr Hdc
+		{
+			get
+			{
+				if (this._hDC == IntPtr.Zero && this._dcType == DeviceContextType.Display)
+				{
+					this._hDC = ((IDeviceContext)this).GetHdc();
+					this.CacheInitialState();
+				}
+				return this._hDC;
+			}
+		}
+
+		// Token: 0x060005A6 RID: 1446 RVA: 0x0002262C File Offset: 0x00020C2C
+		private void CacheInitialState()
+		{
+			this._hCurrentPen = (this._hInitialPen = Interop.Gdi32.GetCurrentObject(new HandleRef(this, this._hDC), Interop.Gdi32.ObjectType.OBJ_PEN));
+			this._hCurrentBrush = (this._hInitialBrush = Interop.Gdi32.GetCurrentObject(new HandleRef(this, this._hDC), Interop.Gdi32.ObjectType.OBJ_BRUSH));
+			this._hCurrentBmp = (this._hInitialBmp = Interop.Gdi32.GetCurrentObject(new HandleRef(this, this._hDC), Interop.Gdi32.ObjectType.OBJ_BITMAP));
+			this._hCurrentFont = (this._hInitialFont = Interop.Gdi32.GetCurrentObject(new HandleRef(this, this._hDC), Interop.Gdi32.ObjectType.OBJ_FONT));
+		}
+
+		// Token: 0x060005A7 RID: 1447 RVA: 0x000226BD File Offset: 0x00020CBD
+		private DeviceContext(IntPtr hWnd)
+		{
+			this._hWnd = hWnd;
+			this._dcType = DeviceContextType.Display;
+			DeviceContexts.AddDeviceContext(this);
+		}
+
+		// Token: 0x060005A8 RID: 1448 RVA: 0x000226E8 File Offset: 0x00020CE8
+		private DeviceContext(IntPtr hDC, DeviceContextType dcType)
+		{
+			this._hDC = hDC;
+			this._dcType = dcType;
+			this.CacheInitialState();
+			DeviceContexts.AddDeviceContext(this);
+			if (dcType == DeviceContextType.Display)
+			{
+				this._hWnd = Interop.User32.WindowFromDC(new HandleRef(this, this._hDC));
+			}
+		}
+
+		// Token: 0x060005A9 RID: 1449 RVA: 0x0002273C File Offset: 0x00020D3C
+		public static DeviceContext CreateDC(string driverName, string deviceName, string fileName, IntPtr devMode)
+		{
+			IntPtr hDC = Interop.Gdi32.CreateDCW(driverName, deviceName, fileName, devMode);
+			return new DeviceContext(hDC, DeviceContextType.NamedDevice);
+		}
+
+		// Token: 0x060005AA RID: 1450 RVA: 0x0002275C File Offset: 0x00020D5C
+		public static DeviceContext CreateIC(string driverName, string deviceName, string fileName, IntPtr devMode)
+		{
+			IntPtr hDC = Interop.Gdi32.CreateICW(driverName, deviceName, fileName, devMode);
+			return new DeviceContext(hDC, DeviceContextType.Information);
+		}
+
+		// Token: 0x060005AB RID: 1451 RVA: 0x0002277C File Offset: 0x00020D7C
+		public static DeviceContext FromCompatibleDC(IntPtr hdc)
+		{
+			IntPtr hDC = Interop.Gdi32.CreateCompatibleDC(hdc);
+			return new DeviceContext(hDC, DeviceContextType.Memory);
+		}
+
+		// Token: 0x060005AC RID: 1452 RVA: 0x00022797 File Offset: 0x00020D97
+		public static DeviceContext FromHdc(IntPtr hdc)
+		{
+			return new DeviceContext(hdc, DeviceContextType.Unknown);
+		}
+
+		// Token: 0x060005AD RID: 1453 RVA: 0x000227A0 File Offset: 0x00020DA0
+		public static DeviceContext FromHwnd(IntPtr hwnd)
+		{
+			return new DeviceContext(hwnd);
+		}
+
+		// Token: 0x060005AE RID: 1454 RVA: 0x000227A8 File Offset: 0x00020DA8
+		~DeviceContext()
+		{
+			this.Dispose(false);
+		}
+
+		// Token: 0x060005AF RID: 1455 RVA: 0x000227D8 File Offset: 0x00020DD8
+		public void Dispose()
+		{
+			this.Dispose(true);
+			GC.SuppressFinalize(this);
+		}
+
+		// Token: 0x060005B0 RID: 1456 RVA: 0x000227E8 File Offset: 0x00020DE8
+		internal void Dispose(bool disposing)
+		{
+			if (this._disposed)
+			{
+				return;
+			}
+			EventHandler disposing2 = this.Disposing;
+			if (disposing2 != null)
+			{
+				disposing2(this, EventArgs.Empty);
+			}
+			this._disposed = true;
+			switch (this._dcType)
+			{
+			case DeviceContextType.Unknown:
+			case DeviceContextType.NCWindow:
+				return;
+			case DeviceContextType.Display:
+				((IDeviceContext)this).ReleaseHdc();
+				return;
+			case DeviceContextType.NamedDevice:
+			case DeviceContextType.Information:
+				Interop.Gdi32.DeleteDC(new HandleRef(this, this._hDC));
+				this._hDC = IntPtr.Zero;
+				return;
+			case DeviceContextType.Memory:
+				Interop.Gdi32.DeleteDC(new HandleRef(this, this._hDC));
+				this._hDC = IntPtr.Zero;
+				return;
+			default:
+				return;
+			}
+		}
+
+		// Token: 0x060005B1 RID: 1457 RVA: 0x00022885 File Offset: 0x00020E85
+		IntPtr IDeviceContext.GetHdc()
+		{
+			if (this._hDC == IntPtr.Zero)
+			{
+				this._hDC = Interop.User32.GetDC(new HandleRef(this, this._hWnd));
+			}
+			return this._hDC;
+		}
+
+		// Token: 0x060005B2 RID: 1458 RVA: 0x000228B8 File Offset: 0x00020EB8
+		void IDeviceContext.ReleaseHdc()
+		{
+			if (this._hDC != IntPtr.Zero && this._dcType == DeviceContextType.Display)
+			{
+				Interop.User32.ReleaseDC(new HandleRef(this, this._hWnd), new HandleRef(this, this._hDC));
+				this._hDC = IntPtr.Zero;
+			}
+		}
+
+		// Token: 0x060005B3 RID: 1459 RVA: 0x0002290C File Offset: 0x00020F0C
+		public void RestoreHdc()
+		{
+			Interop.Gdi32.RestoreDC(new HandleRef(this, this._hDC), -1);
+			if (this._contextStack != null)
+			{
+				DeviceContext.GraphicsState graphicsState = (DeviceContext.GraphicsState)this._contextStack.Pop();
+				this._hCurrentBmp = graphicsState.hBitmap;
+				this._hCurrentBrush = graphicsState.hBrush;
+				this._hCurrentPen = graphicsState.hPen;
+				this._hCurrentFont = graphicsState.hFont;
+			}
+		}
+
+		// Token: 0x060005B4 RID: 1460 RVA: 0x00022978 File Offset: 0x00020F78
+		public int SaveHdc()
+		{
+			HandleRef hdc = new HandleRef(this, this._hDC);
+			int result = Interop.Gdi32.SaveDC(hdc);
+			if (this._contextStack == null)
+			{
+				this._contextStack = new Stack();
+			}
+			DeviceContext.GraphicsState graphicsState = new DeviceContext.GraphicsState();
+			graphicsState.hBitmap = this._hCurrentBmp;
+			graphicsState.hBrush = this._hCurrentBrush;
+			graphicsState.hPen = this._hCurrentPen;
+			graphicsState.hFont = this._hCurrentFont;
+			this._contextStack.Push(graphicsState);
+			return result;
+		}
+
+		// Token: 0x060005B5 RID: 1461 RVA: 0x000229F0 File Offset: 0x00020FF0
+		public void SetClip(WindowsRegion region)
+		{
+			HandleRef hdc = new HandleRef(this, this._hDC);
+			HandleRef hrgn = new HandleRef(region, region.HRegion);
+			Interop.Gdi32.SelectClipRgn(hdc, hrgn);
+		}
+
+		// Token: 0x060005B6 RID: 1462 RVA: 0x00022A24 File Offset: 0x00021024
+		public void IntersectClip(WindowsRegion wr)
+		{
+			if (wr.HRegion == IntPtr.Zero)
+			{
+				return;
+			}
+			WindowsRegion windowsRegion = new WindowsRegion(0, 0, 0, 0);
+			try
+			{
+				int clipRgn = Interop.Gdi32.GetClipRgn(new HandleRef(this, this._hDC), new HandleRef(windowsRegion, windowsRegion.HRegion));
+				if (clipRgn == 1)
+				{
+					wr.CombineRegion(windowsRegion, wr, Interop.Gdi32.CombineMode.RGN_AND);
+				}
+				this.SetClip(wr);
+			}
+			finally
+			{
+				windowsRegion.Dispose();
+			}
+		}
+
+		// Token: 0x060005B7 RID: 1463 RVA: 0x00022A9C File Offset: 0x0002109C
+		public void TranslateTransform(int dx, int dy)
+		{
+			Point point = default(Point);
+			Interop.Gdi32.OffsetViewportOrgEx(new HandleRef(this, this._hDC), dx, dy, ref point);
+		}
+
+		// Token: 0x060005B8 RID: 1464 RVA: 0x00022AC8 File Offset: 0x000210C8
+		public override bool Equals(object obj)
+		{
+			DeviceContext deviceContext = obj as DeviceContext;
+			return deviceContext == this || (deviceContext != null && deviceContext.Hdc == this._hDC);
+		}
+
+		// Token: 0x060005B9 RID: 1465 RVA: 0x00022AF8 File Offset: 0x000210F8
+		public override int GetHashCode()
+		{
+			return this._hDC.GetHashCode();
+		}
+
+		// Token: 0x040002E7 RID: 743
+		private IntPtr _hDC;
+
+		// Token: 0x040002E8 RID: 744
+		private readonly DeviceContextType _dcType;
+
+		// Token: 0x040002EA RID: 746
+		private bool _disposed;
+
+		// Token: 0x040002EB RID: 747
+		private readonly IntPtr _hWnd = (IntPtr)(-1);
+
+		// Token: 0x040002EC RID: 748
+		private IntPtr _hInitialPen;
+
+		// Token: 0x040002ED RID: 749
+		private IntPtr _hInitialBrush;
+
+		// Token: 0x040002EE RID: 750
+		private IntPtr _hInitialBmp;
+
+		// Token: 0x040002EF RID: 751
+		private IntPtr _hInitialFont;
+
+		// Token: 0x040002F0 RID: 752
+		private IntPtr _hCurrentPen;
+
+		// Token: 0x040002F1 RID: 753
+		private IntPtr _hCurrentBrush;
+
+		// Token: 0x040002F2 RID: 754
+		private IntPtr _hCurrentBmp;
+
+		// Token: 0x040002F3 RID: 755
+		private IntPtr _hCurrentFont;
+
+		// Token: 0x040002F4 RID: 756
+		private Stack _contextStack;
+
+		// Token: 0x020000E3 RID: 227
+		internal class GraphicsState
+		{
+			// Token: 0x0400081A RID: 2074
+			internal IntPtr hBrush;
+
+			// Token: 0x0400081B RID: 2075
+			internal IntPtr hFont;
+
+			// Token: 0x0400081C RID: 2076
+			internal IntPtr hPen;
+
+			// Token: 0x0400081D RID: 2077
+			internal IntPtr hBitmap;
+		}
+	}
 [assembly: TypeForwardedTo(typeof(Collection<>))]
 [assembly: TypeForwardedTo(typeof(ComDefaultInterfaceAttribute))]
 [assembly: TypeForwardedTo(typeof(ComEventInterfaceAttribute))]
@@ -502,6 +794,52 @@ namespace System
 [assembly: TypeForwardedTo(typeof(EncoderExceptionFallback))]
 [assembly: TypeForwardedTo(typeof(EncoderExceptionFallbackBuffer))]
 [assembly: TypeForwardedTo(typeof(EncoderFallback))]
+// Token: 0x0200004B RID: 75
+	internal static class DeviceContexts
+	{
+		// Token: 0x060005BA RID: 1466 RVA: 0x00022B08 File Offset: 0x00021108
+		internal static void AddDeviceContext(DeviceContext dc)
+		{
+			if (DeviceContexts.t_activeDeviceContexts == null)
+			{
+				DeviceContexts.t_activeDeviceContexts = new ClientUtils.WeakRefCollection
+				{
+					RefCheckThreshold = 20
+				};
+			}
+			if (!DeviceContexts.t_activeDeviceContexts.Contains(dc))
+			{
+				dc.Disposing += DeviceContexts.OnDcDisposing;
+				DeviceContexts.t_activeDeviceContexts.Add(dc);
+			}
+		}
+
+		// Token: 0x060005BB RID: 1467 RVA: 0x00022B5C File Offset: 0x0002115C
+		private static void OnDcDisposing(object sender, EventArgs e)
+		{
+			DeviceContext deviceContext = sender as DeviceContext;
+			if (deviceContext != null)
+			{
+				deviceContext.Disposing -= DeviceContexts.OnDcDisposing;
+				DeviceContexts.RemoveDeviceContext(deviceContext);
+			}
+		}
+
+		// Token: 0x060005BC RID: 1468 RVA: 0x00022B8B File Offset: 0x0002118B
+		internal static void RemoveDeviceContext(DeviceContext dc)
+		{
+			ClientUtils.WeakRefCollection weakRefCollection = DeviceContexts.t_activeDeviceContexts;
+			if (weakRefCollection == null)
+			{
+				return;
+			}
+			weakRefCollection.RemoveByHashCode(dc);
+		}
+
+		// Token: 0x040002F5 RID: 757
+		[ThreadStatic]
+		private static ClientUtils.WeakRefCollection t_activeDeviceContexts;
+	}
 [assembly: TypeForwardedTo(typeof(EncoderFallbackBuffer))]
 [assembly: TypeForwardedTo(typeof(EncoderFallbackException))]
 [assembly: TypeForwardedTo(typeof(EncoderReplacementFallback))]

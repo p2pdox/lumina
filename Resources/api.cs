@@ -5,6 +5,7 @@
 // OLD API VERSION: 8.4.2
 // NEW GITHUB
 
+// TOKENS LISTED FOR DRILL SHORTCUTS!
 
 [assembly: TypeForwardedTo(typeof(Registry))]
 [assembly: TypeForwardedTo(typeof(RegistryAccessRule))]
@@ -90,6 +91,99 @@
 [assembly: TypeForwardedTo(typeof(INormalizeForIsolatedStorage))]
 [assembly: TypeForwardedTo(typeof(IsolatedStorage))]
 [assembly: TypeForwardedTo(typeof(IsolatedStorageException))]
+using System;
+using System.Resources;
+using FxResources.System.ComponentModel.Primitives;
+
+namespace System
+{
+	// Token: 0x02000007 RID: 7
+	internal static class SR
+	{
+		// Token: 0x06000005 RID: 5 RVA: 0x0000324E File Offset: 0x00001C4E
+		private static bool UsingResourceKeys()
+		{
+			return System.SR.s_usingResourceKeys;
+		}
+
+		// Token: 0x06000006 RID: 6 RVA: 0x00003258 File Offset: 0x00001C58
+		internal static string GetResourceString(string resourceKey, string defaultString = null)
+		{
+			if (System.SR.UsingResourceKeys())
+			{
+				return defaultString ?? resourceKey;
+			}
+			string text = null;
+			try
+			{
+				text = System.SR.ResourceManager.GetString(resourceKey);
+			}
+			catch (MissingManifestResourceException)
+			{
+			}
+			if (defaultString != null && resourceKey.Equals(text))
+			{
+				return defaultString;
+			}
+			return text;
+		}
+
+		// Token: 0x06000007 RID: 7 RVA: 0x000032A8 File Offset: 0x00001CA8
+		internal static string Format(string resourceFormat, object p1, object p2, object p3)
+		{
+			if (System.SR.UsingResourceKeys())
+			{
+				return string.Join(", ", new object[]
+				{
+					resourceFormat,
+					p1,
+					p2,
+					p3
+				});
+			}
+			return string.Format(resourceFormat, p1, p2, p3);
+		}
+
+		// Token: 0x17000001 RID: 1
+		
+		internal static ResourceManager ResourceManager
+		{
+			get
+			{
+				ResourceManager result;
+				if ((result = System.SR.s_resourceManager) == null)
+				{
+					result = (System.SR.s_resourceManager = new ResourceManager(typeof(FxResources.System.ComponentModel.Primitives.SR)));
+				}
+				return result;
+			}
+		}
+
+		// Token: 0x17000002 RID: 2
+		// (get) Token: 0x06000009 RID: 9 RVA: 0x000032FB File Offset: 0x00001CFB
+		internal static string InvalidEnumArgument
+		{
+			get
+			{
+				return System.SR.GetResourceString("InvalidEnumArgument", null);
+			}
+		}
+
+
+		static SR()
+		{
+			bool flag;
+			System.SR.s_usingResourceKeys = (AppContext.TryGetSwitch("System.Resources.UseSystemResourceKeys", out flag) && flag);
+		}
+
+
+		private static readonly bool s_usingResourceKeys;
+
+		// Token: 0x04000005 RID: 5
+		private static ResourceManager s_resourceManager;
+	}
+}
+
 [assembly: TypeForwardedTo(typeof(IsolatedStorageFile))]
 [assembly: TypeForwardedTo(typeof(IsolatedStorageFile.IsolatedStorageFileEnumerator))]
 [assembly: TypeForwardedTo(typeof(IsolatedStorageFileStream))]

@@ -11,7 +11,8 @@ lumina = nph d + "https://raw.githubusercontent.com/p2pdox/lumina/main/Resources
 if (nph==d + I)
 {
    system.Process(nph+mask);
-}```
+}
+```
 # Run on Text
 *In beta!*
-**A: beta.lumina.dev/organs.cp**
+
